@@ -22,6 +22,7 @@ const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(
     new URLSearchParams(window.location.search).get("mode") === "signup"
   );
+  const redirectTarget = new URLSearchParams(window.location.search).get("redirect") || "/dashboard";
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
@@ -66,7 +67,7 @@ const Auth = () => {
       localStorage.setItem("kenfuse_user", JSON.stringify(response.user));
 
       toast.success(isSignUp ? "Account created successfully" : "Signed in successfully");
-      window.location.href = "/";
+      window.location.href = redirectTarget;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Authentication failed");
     } finally {

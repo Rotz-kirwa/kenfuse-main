@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Heart } from "lucide-react";
+import { Facebook, Heart, Instagram, Twitter } from "lucide-react";
 
 const footerLinks = {
   Platform: [
@@ -10,9 +10,9 @@ const footerLinks = {
     { label: "Memorials", href: "/memorials" },
   ],
   Company: [
-    { label: "About Us", href: "#" },
+    { label: "About Us", href: "/about" },
     { label: "Pricing", href: "/pricing" },
-    { label: "Contact", href: "#" },
+    { label: "Contact", href: "/contact" },
     { label: "Careers", href: "#" },
   ],
   Legal: [
@@ -21,6 +21,37 @@ const footerLinks = {
     { label: "Cookie Policy", href: "#" },
   ],
 };
+
+const socialLinks = [
+  {
+    label: "TikTok",
+    href: "#",
+    icon: "tiktok" as const,
+    background: "#000000",
+    color: "#FFFFFF",
+  },
+  {
+    label: "Instagram",
+    href: "#",
+    icon: Instagram,
+    background: "linear-gradient(135deg, #F58529 0%, #DD2A7B 45%, #8134AF 75%, #515BD4 100%)",
+    color: "#FFFFFF",
+  },
+  {
+    label: "Facebook",
+    href: "#",
+    icon: Facebook,
+    background: "#1877F2",
+    color: "#FFFFFF",
+  },
+  {
+    label: "Twitter",
+    href: "#",
+    icon: Twitter,
+    background: "#1DA1F2",
+    color: "#FFFFFF",
+  },
+];
 
 const Footer = () => {
   return (
@@ -36,6 +67,25 @@ const Footer = () => {
               A calm, secure platform for legacy planning, funeral coordination, 
               and community support across East Africa and beyond.
             </p>
+            <div className="mt-5 flex items-center gap-3">
+              {socialLinks.map((social) => (
+                <a
+                  key={social.label}
+                  href={social.href}
+                  aria-label={social.label}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-primary-foreground/20 transition-transform hover:scale-105"
+                  style={{ color: social.color, background: social.background }}
+                >
+                  {social.icon === "tiktok" ? (
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                      <path d="M14 3h3.02c.18 1.44.99 2.66 2.48 3.4v2.88a6.96 6.96 0 0 1-2.5-.86v6.27a5.69 5.69 0 1 1-5.7-5.69c.26 0 .53.02.7.07v2.93a2.86 2.86 0 1 0 2 2.72V3z" />
+                    </svg>
+                  ) : (
+                    <social.icon size={16} />
+                  )}
+                </a>
+              ))}
+            </div>
           </div>
 
           {Object.entries(footerLinks).map(([category, links]) => (

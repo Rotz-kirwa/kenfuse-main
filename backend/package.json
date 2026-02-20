@@ -15,7 +15,14 @@
     "db:setup": "./scripts/db-bootstrap.sh",
     "admin:promote": "tsx scripts/promote-admin.ts",
     "users:list": "tsx scripts/list-users.ts",
-    "admin:create": "tsx scripts/create-admin.ts"
+    "admin:create": "tsx scripts/create-admin.ts",
+    "marketplace:import:coffins": "tsx scripts/import-coffins.ts",
+    "marketplace:import:transport": "tsx scripts/import-funeral-transport.ts",
+    "marketplace:import:catering": "tsx scripts/import-catering.ts",
+    "marketplace:import:event": "tsx scripts/import-event-coordination.ts",
+    "marketplace:import:flowers": "tsx scripts/import-flowers-wreaths.ts",
+    "marketplace:import:grave": "tsx scripts/import-grave-services.ts",
+    "marketplace:import:pa": "tsx scripts/import-pa-systems.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

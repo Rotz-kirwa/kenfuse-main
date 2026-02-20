@@ -4,6 +4,7 @@ import { prisma } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/require-admin.js";
 import { logActivity } from "../lib/activity.js";
+import { getListingContactMap, LISTING_CONTACT_ACTIVITY_TYPE } from "../lib/listing-contacts.js";
 
 const router = Router();
 
@@ -29,7 +30,14 @@ router.get("/listings", async (req, res) => {
     orderBy: { createdAt: "desc" },
   });
 
-  return res.json({ listings });
+  const contacts = await getListingContactMap(listings.map((item) => item.id));
+
+  return res.json({
+    listings: listings.map((item) => ({
+      ...item,
+      vendorContact: contacts.get(item.id) ?? null,
+    })),
+  });
 });
 
 const listingSchema = z.object({
@@ -39,6 +47,7 @@ const listingSchema = z.object({
   description: z.string().min(10).max(5000),
   price: z.number().int().positive(),
   currency: z.string().length(3).default("KES"),
+  vendorContact: z.string().min(7).max(40).optional(),
 });
 
 router.post("/listings", requireAuth, requireAdmin, async (req, res, next) => {
@@ -71,6 +80,16 @@ router.post("/listings", requireAuth, requireAdmin, async (req, res, next) => {
       entityType: "MARKETPLACE_LISTING",
       entityId: listing.id,
     });
+
+    if (body.vendorContact) {
+      await logActivity({
+        userId: req.auth!.userId,
+        type: LISTING_CONTACT_ACTIVITY_TYPE,
+        entityType: "MARKETPLACE_LISTING",
+        entityId: listing.id,
+        metadata: { vendorContact: body.vendorContact.trim() },
+      });
+    }
 
     return res.status(201).json({ listing });
   } catch (error) {

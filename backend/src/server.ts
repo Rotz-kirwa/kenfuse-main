@@ -12,6 +12,7 @@ import marketplaceRoutes from "./routes/marketplace.js";
 import activityRoutes from "./routes/activities.js";
 import adminRoutes from "./routes/admin.js";
 import metaRoutes from "./routes/meta.js";
+import servicesRoutes from "./routes/services.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
 const app = express();
@@ -58,6 +59,7 @@ app.use("/api/fundraisers", fundraiserRoutes);
 app.use("/api/memorials", memorialRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
 app.use("/api/activities", activityRoutes);
+app.use("/api/services", servicesRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/meta", metaRoutes);
 

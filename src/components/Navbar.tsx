@@ -1,21 +1,31 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { clearSession, isLoggedIn } from "@/lib/session";
 
 const navLinks = [
-  { label: "How It Works", href: "/how-it-works" },
-  { label: "Legacy Plans", href: "/legacy-plan" },
+  { label: "Home", href: "/" },
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "About", href: "/about" },
   { label: "Marketplace", href: "/marketplace" },
-  { label: "Fundraiser", href: "/fundraiser" },
-  { label: "Memorials", href: "/memorials" },
-  { label: "Admin", href: "/admin" },
+  { label: "How It Works", href: "/how-it-works" },
+  { label: "Services", href: "/services" },
+  { label: "Contact", href: "/contact" },
 ];
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const loggedIn = isLoggedIn();
+
+  function handleSignOut() {
+    clearSession();
+    setIsOpen(false);
+    navigate("/");
+  }
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
@@ -44,12 +54,22 @@ const Navbar = () => {
         </div>
 
         <div className="hidden lg:flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/auth">Sign In</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link to="/auth?mode=signup">Get Started</Link>
-          </Button>
+          {loggedIn ? (
+            <>
+              <Button size="sm" onClick={handleSignOut}>
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/auth">Sign In</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link to="/auth?mode=signup">Get Started</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -87,12 +107,22 @@ const Navbar = () => {
                 </Link>
               ))}
               <div className="flex gap-3 pt-2 border-t border-border">
-                <Button variant="ghost" size="sm" asChild className="flex-1">
-                  <Link to="/auth" onClick={() => setIsOpen(false)}>Sign In</Link>
-                </Button>
-                <Button size="sm" asChild className="flex-1">
-                  <Link to="/auth?mode=signup" onClick={() => setIsOpen(false)}>Get Started</Link>
-                </Button>
+                {loggedIn ? (
+                  <>
+                    <Button size="sm" className="flex-1" onClick={handleSignOut}>
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" asChild className="flex-1">
+                      <Link to="/auth" onClick={() => setIsOpen(false)}>Sign In</Link>
+                    </Button>
+                    <Button size="sm" asChild className="flex-1">
+                      <Link to="/auth?mode=signup" onClick={() => setIsOpen(false)}>Get Started</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

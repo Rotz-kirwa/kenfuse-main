@@ -12,6 +12,7 @@ interface Category {
 interface Listing {
   id: string;
   vendorName: string;
+  vendorContact: string | null;
   title: string;
   description: string;
   imageUrl: string | null;
@@ -26,6 +27,19 @@ interface CategoriesResponse {
 
 interface ListingsResponse {
   listings: Listing[];
+}
+
+const vendorContacts: Record<string, string> = {
+  "kenfume memorials": "+254 700 101 101",
+  "kenfuse memorial supplies": "+254 700 101 101",
+  "kenfuse transport services": "+254 700 202 202",
+  "kenfuse catering services": "+254 700 303 303",
+  "kenfuse event coordination": "+254 700 404 404",
+  kabuthia: "+254 700 505 505",
+};
+
+function getVendorContact(vendorName: string) {
+  return vendorContacts[vendorName.trim().toLowerCase()] ?? "+254 700 000 999";
 }
 
 const Marketplace = () => {
@@ -131,6 +145,12 @@ const Marketplace = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredListings.map((listing) => (
                   <article key={listing.id} className="bg-card border border-border rounded-xl p-5 shadow-card">
+                    {(() => {
+                      const contact = listing.vendorContact ?? getVendorContact(listing.vendorName);
+                      const telHref = `tel:${contact.replace(/[^\d+]/g, "")}`;
+
+                      return (
+                        <>
                     {listing.imageUrl ? (
                       <img
                         src={listing.imageUrl}
@@ -143,9 +163,18 @@ const Marketplace = () => {
                     <h3 className="font-display text-xl mb-1">{listing.title}</h3>
                     <p className="text-sm text-muted-foreground mb-3">By {listing.vendorName}</p>
                     <p className="text-sm text-muted-foreground mb-4">{listing.description}</p>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Contact:{" "}
+                      <a className="text-accent hover:underline" href={telHref}>
+                        {contact}
+                      </a>
+                    </p>
                     <p className="font-semibold">
                       {listing.currency} {listing.price.toLocaleString()}
                     </p>
+                        </>
+                      );
+                    })()}
                   </article>
                 ))}
               </div>

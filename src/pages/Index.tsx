@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import { Shield, Heart, Users, ShoppingBag, BookOpen, ArrowRight, Star, Lock, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
-import heroBg from "@/assets/hero-bg.jpg";
+
+const heroImageUrl = "https://i.pinimg.com/736x/26/53/2b/26532b17e6ca0ab9f9bf1d8e97e905b0.jpg";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -19,14 +20,14 @@ const features = [
     icon: FileText,
     title: "Legacy Planning",
     description: "Create a comprehensive digital will with guided steps — assets, beneficiaries, wishes, and key documents all in one secure place.",
-    href: "/legacy-plan",
+    href: "/dashboard?tab=legacy",
     cta: "Start Your Plan",
   },
   {
     icon: Heart,
     title: "Fundraiser",
     description: "Set up funeral fundraisers with transparent tracking. Accept contributions from family and community with dignity.",
-    href: "/fundraiser",
+    href: "/dashboard?tab=fundraiser",
     cta: "Create Fundraiser",
   },
   {
@@ -40,7 +41,7 @@ const features = [
     icon: BookOpen,
     title: "Memorial Pages",
     description: "Honor loved ones with beautiful tribute pages featuring photos, stories, and a community guestbook.",
-    href: "/memorials",
+    href: "/dashboard?tab=memorial",
     cta: "Create Memorial",
   },
 ];
@@ -82,7 +83,7 @@ const Index = () => {
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden pt-16">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroBg})` }}
+          style={{ backgroundImage: `url(${heroImageUrl})` }}
         />
         <div className="absolute inset-0 bg-gradient-hero" />
         <div className="relative z-10 container mx-auto px-4 lg:px-8 py-20 text-center">
@@ -119,7 +120,7 @@ const Index = () => {
             className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <Button variant="hero" size="lg" asChild>
-              <Link to="/legacy-plan">
+              <Link to="/dashboard?tab=legacy">
                 Start Your Legacy Plan
                 <ArrowRight size={18} />
               </Link>

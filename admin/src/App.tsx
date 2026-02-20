@@ -41,6 +41,7 @@ interface Listing {
   id: string;
   title: string;
   vendorName: string;
+  vendorContact: string | null;
   category: { name: string };
   status: "ACTIVE" | "INACTIVE";
   imageUrl: string | null;
@@ -78,6 +79,19 @@ interface CategoriesResponse {
   categories: Category[];
 }
 
+interface AdminService {
+  id: string;
+  title: string;
+  imageUrl: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  updatedAt: string | null;
+}
+
+interface ServicesResponse {
+  services: AdminService[];
+}
+
 interface LoginResponse {
   user: {
     role: string;
@@ -95,7 +109,20 @@ const emptyStats: Stats = {
   activities: 0,
 };
 
-type Tab = "fundraisers" | "memorials" | "marketplace" | "activity";
+const vendorContacts: Record<string, string> = {
+  "kenfume memorials": "+254 700 101 101",
+  "kenfuse memorial supplies": "+254 700 101 101",
+  "kenfuse transport services": "+254 700 202 202",
+  "kenfuse catering services": "+254 700 303 303",
+  "kenfuse event coordination": "+254 700 404 404",
+  kabuthia: "+254 700 505 505",
+};
+
+function getVendorContact(vendorName: string) {
+  return vendorContacts[vendorName.trim().toLowerCase()] ?? "+254 700 000 999";
+}
+
+type Tab = "fundraisers" | "memorials" | "marketplace" | "services" | "activity" | "users";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("fundraisers");
@@ -117,12 +144,14 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [activities, setActivities] = useState<EventItem[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [services, setServices] = useState<AdminService[]>([]);
   const [rolesSummary, setRolesSummary] = useState({ admin: 0, user: 0 });
   const [creatingListing, setCreatingListing] = useState(false);
   const [createCategoryId, setCreateCategoryId] = useState("");
   const [createVendorName, setCreateVendorName] = useState("");
   const [createTitle, setCreateTitle] = useState("");
   const [createDescription, setCreateDescription] = useState("");
+  const [createVendorContact, setCreateVendorContact] = useState("");
   const [createPrice, setCreatePrice] = useState("");
   const [createImageUrl, setCreateImageUrl] = useState("");
 
@@ -136,9 +165,10 @@ export default function App() {
   async function loadOverview() {
     try {
       setError(null);
-      const [data, categoriesData] = await Promise.all([
+      const [data, categoriesData, servicesData] = await Promise.all([
         apiRequest<Overview>("/api/admin/overview"),
         apiRequest<CategoriesResponse>("/api/marketplace/categories"),
+        apiRequest<ServicesResponse>("/api/admin/services"),
       ]);
       setStats(data.stats);
       setFundraisers(data.fundraiserList);
@@ -148,6 +178,7 @@ export default function App() {
       setUsers(data.usersList);
       setRolesSummary(data.rolesSummary);
       setCategories(categoriesData.categories);
+      setServices(servicesData.services);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
@@ -198,6 +229,7 @@ export default function App() {
     setFundraisers([]);
     setMemorials([]);
     setListings([]);
+    setServices([]);
     setActivities([]);
     setUsers([]);
     setRolesSummary({ admin: 0, user: 0 });
@@ -260,6 +292,37 @@ export default function App() {
     }
   }
 
+  async function updateListingContact(item: Listing, vendorContact: string) {
+    setActionId(item.id);
+    try {
+      await apiRequest(`/api/admin/listings/${item.id}/contact`, {
+        method: "PATCH",
+        body: JSON.stringify({ vendorContact }),
+      });
+      setRefreshing(true);
+      await loadOverview();
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function updateService(
+    service: AdminService,
+    payload: Partial<Pick<AdminService, "title" | "imageUrl" | "isActive" | "sortOrder">>
+  ) {
+    setActionId(service.id);
+    try {
+      await apiRequest(`/api/admin/services/${service.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      setRefreshing(true);
+      await loadOverview();
+    } finally {
+      setActionId(null);
+    }
+  }
+
   async function createListing(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -279,6 +342,7 @@ export default function App() {
           vendorName: createVendorName.trim(),
           title: createTitle.trim(),
           description: createDescription.trim(),
+          vendorContact: createVendorContact.trim() || undefined,
           price: parsedPrice,
           currency: "KES",
           imageUrl: createImageUrl.trim() || undefined,
@@ -289,6 +353,7 @@ export default function App() {
       setCreateVendorName("");
       setCreateTitle("");
       setCreateDescription("");
+      setCreateVendorContact("");
       setCreatePrice("");
       setCreateImageUrl("");
       setRefreshing(true);
@@ -346,7 +411,9 @@ export default function App() {
           <button className={`tab-btn ${tab === "fundraisers" ? "active" : ""}`} onClick={() => setTab("fundraisers")}>Fundraisers</button>
           <button className={`tab-btn ${tab === "memorials" ? "active" : ""}`} onClick={() => setTab("memorials")}>Memorials</button>
           <button className={`tab-btn ${tab === "marketplace" ? "active" : ""}`} onClick={() => setTab("marketplace")}>Marketplace</button>
+          <button className={`tab-btn ${tab === "services" ? "active" : ""}`} onClick={() => setTab("services")}>Services</button>
           <button className={`tab-btn ${tab === "activity" ? "active" : ""}`} onClick={() => setTab("activity")}>Activity</button>
+          <button className={`tab-btn ${tab === "users" ? "active" : ""}`} onClick={() => setTab("users")}>Users</button>
         </nav>
 
         <div className="rail-actions">
@@ -453,6 +520,15 @@ export default function App() {
                         <input value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} required />
                       </label>
                       <label>
+                        Vendor Contact
+                        <input
+                          value={createVendorContact}
+                          onChange={(event) => setCreateVendorContact(event.target.value)}
+                          placeholder="+254..."
+                          required
+                        />
+                      </label>
+                      <label>
                         Price (KES)
                         <input type="number" min={1} value={createPrice} onChange={(event) => setCreatePrice(event.target.value)} required />
                       </label>
@@ -469,13 +545,19 @@ export default function App() {
                   <section className="table-wrap">
                     <table>
                       <thead>
-                        <tr><th>Title</th><th>Vendor</th><th>Category</th><th>Image</th><th>Price</th><th>Status</th><th>Action</th></tr>
+                        <tr><th>Title</th><th>Vendor</th><th>Contact</th><th>Category</th><th>Image</th><th>Price</th><th>Status</th><th>Action</th></tr>
                       </thead>
                       <tbody>
                         {listings.map((l) => (
                           <tr key={l.id}>
                             <td>{l.title}</td>
                             <td>{l.vendorName}</td>
+                            <td>
+                              {(() => {
+                                const contact = l.vendorContact ?? getVendorContact(l.vendorName);
+                                return <a href={`tel:${contact.replace(/[^\d+]/g, "")}`}>{contact}</a>;
+                              })()}
+                            </td>
                             <td>{l.category.name}</td>
                             <td>
                               <div className="row-actions">
@@ -492,6 +574,18 @@ export default function App() {
                               <div className="row-actions">
                                 <button onClick={() => void toggleListing(l)} disabled={actionId === l.id}>
                                   {l.status === "ACTIVE" ? "Disable" : "Activate"}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const next = window.prompt("Enter vendor contact", l.vendorContact ?? getVendorContact(l.vendorName));
+                                    if (next === null) return;
+                                    const trimmed = next.trim();
+                                    if (!trimmed) return;
+                                    void updateListingContact(l, trimmed);
+                                  }}
+                                  disabled={actionId === l.id}
+                                >
+                                  Edit Contact
                                 </button>
                                 <button
                                   onClick={() => {
@@ -539,23 +633,102 @@ export default function App() {
                 </section>
               ) : null}
 
-              <section className="table-wrap">
-                <table>
-                  <thead>
-                    <tr><th>User</th><th>Email</th><th>Role</th><th>Created</th></tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u) => (
-                      <tr key={u.id}>
-                        <td>{u.fullName}</td>
-                        <td>{u.email}</td>
-                        <td><span className={`badge ${u.role === "ADMIN" ? "ok" : "bad"}`}>{u.role}</span></td>
-                        <td>{new Date(u.createdAt).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
+              {tab === "services" ? (
+                <section className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Service</th><th>Image</th><th>Status</th><th>Order</th><th>Updated</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                      {services.map((service) => (
+                        <tr key={service.id}>
+                          <td>{service.title}</td>
+                          <td>
+                            {service.imageUrl ? (
+                              <a href={service.imageUrl} target="_blank" rel="noreferrer">Preview</a>
+                            ) : (
+                              <span className="small">No image</span>
+                            )}
+                          </td>
+                          <td><span className={`badge ${service.isActive ? "ok" : "bad"}`}>{service.isActive ? "ACTIVE" : "HIDDEN"}</span></td>
+                          <td>{service.sortOrder}</td>
+                          <td>{service.updatedAt ? new Date(service.updatedAt).toLocaleString() : "-"}</td>
+                          <td>
+                            <div className="row-actions">
+                              <button
+                                onClick={() => void updateService(service, { isActive: !service.isActive })}
+                                disabled={actionId === service.id}
+                              >
+                                {service.isActive ? "Hide" : "Show"}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const next = window.prompt("Edit service title", service.title);
+                                  if (next === null) return;
+                                  const trimmed = next.trim();
+                                  if (!trimmed) return;
+                                  void updateService(service, { title: trimmed });
+                                }}
+                                disabled={actionId === service.id}
+                              >
+                                Edit Title
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const next = window.prompt("Enter image URL", service.imageUrl ?? "");
+                                  if (next === null) return;
+                                  const trimmed = next.trim();
+                                  void updateService(service, { imageUrl: trimmed ? trimmed : null });
+                                }}
+                                disabled={actionId === service.id}
+                              >
+                                {service.imageUrl ? "Update Image" : "Add Image"}
+                              </button>
+                              {service.imageUrl ? (
+                                <button onClick={() => void updateService(service, { imageUrl: null })} disabled={actionId === service.id}>
+                                  Remove Image
+                                </button>
+                              ) : null}
+                              <button
+                                onClick={() => {
+                                  const next = window.prompt("Sort order (integer)", String(service.sortOrder));
+                                  if (next === null) return;
+                                  const parsed = Number(next);
+                                  if (!Number.isInteger(parsed) || parsed < 0) return;
+                                  void updateService(service, { sortOrder: parsed });
+                                }}
+                                disabled={actionId === service.id}
+                              >
+                                Set Order
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              ) : null}
+
+              {tab === "users" ? (
+                <section className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>User</th><th>Email</th><th>Role</th><th>Created</th></tr>
+                    </thead>
+                    <tbody>
+                      {users.map((u) => (
+                        <tr key={u.id}>
+                          <td>{u.fullName}</td>
+                          <td>{u.email}</td>
+                          <td><span className={`badge ${u.role === "ADMIN" ? "ok" : "bad"}`}>{u.role}</span></td>
+                          <td>{new Date(u.createdAt).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              ) : null}
 
             </>
           ) : null}

@@ -12,7 +12,11 @@ import Marketplace from "./pages/Marketplace";
 import Fundraiser from "./pages/Fundraiser";
 import Memorials from "./pages/Memorials";
 import Auth from "./pages/Auth";
-import Admin from "./pages/Admin";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
+import Services from "./pages/Services";
+import RequireAuth from "./components/RequireAuth";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -26,12 +30,36 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/pricing" element={<Pricing />} />
-          <Route path="/legacy-plan" element={<LegacyPlan />} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/legacy-plan"
+            element={
+              <RequireAuth>
+                <LegacyPlan />
+              </RequireAuth>
+            }
+          />
           <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/fundraiser" element={<Fundraiser />} />
+          <Route
+            path="/fundraiser"
+            element={
+              <RequireAuth>
+                <Fundraiser />
+              </RequireAuth>
+            }
+          />
           <Route path="/memorials" element={<Memorials />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

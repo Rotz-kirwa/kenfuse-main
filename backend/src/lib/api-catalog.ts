@@ -16,8 +16,10 @@ export const API_CATALOG: ApiEndpointInfo[] = [
   { method: "PUT", path: "/api/legacy-plan/me", access: "auth", description: "Create/update own legacy plan" },
 
   { method: "GET", path: "/api/fundraisers", access: "public", description: "List fundraisers" },
-  { method: "GET", path: "/api/fundraisers/:id", access: "public", description: "Fundraiser details" },
+  { method: "GET", path: "/api/fundraisers/:id", access: "public", description: "Fundraiser details (inviteCode query for private/link-only)" },
   { method: "POST", path: "/api/fundraisers", access: "auth", description: "Create fundraiser" },
+  { method: "GET", path: "/api/fundraisers/:id/invite", access: "auth", description: "Get invite code/link for own fundraiser" },
+  { method: "POST", path: "/api/fundraisers/:id/invite-code/regenerate", access: "auth", description: "Regenerate invite code for own fundraiser" },
   { method: "POST", path: "/api/fundraisers/:id/contributions", access: "public", description: "Create contribution" },
 
   { method: "GET", path: "/api/memorials", access: "public", description: "List public memorials" },
@@ -31,13 +33,17 @@ export const API_CATALOG: ApiEndpointInfo[] = [
 
   { method: "GET", path: "/api/activities/me", access: "auth", description: "Own activity feed" },
   { method: "GET", path: "/api/activities/feed", access: "public", description: "Global activity feed" },
+  { method: "GET", path: "/api/services", access: "public", description: "Public services directory list" },
 
   { method: "GET", path: "/api/admin/overview", access: "admin", description: "Admin dashboard data" },
   { method: "POST", path: "/api/admin/listings", access: "admin", description: "Admin create listing" },
   { method: "PATCH", path: "/api/admin/fundraisers/:id/status", access: "admin", description: "Admin update fundraiser status" },
   { method: "PATCH", path: "/api/admin/listings/:id/status", access: "admin", description: "Admin update listing status" },
   { method: "PATCH", path: "/api/admin/listings/:id/image", access: "admin", description: "Admin set/remove listing image" },
+  { method: "PATCH", path: "/api/admin/listings/:id/contact", access: "admin", description: "Admin set listing vendor contact" },
   { method: "PATCH", path: "/api/admin/memorials/:id/visibility", access: "admin", description: "Admin update memorial visibility" },
+  { method: "GET", path: "/api/admin/services", access: "admin", description: "Admin list services directory items" },
+  { method: "PATCH", path: "/api/admin/services/:id", access: "admin", description: "Admin update service title/image/visibility/order" },
 
   { method: "GET", path: "/api/meta/endpoints", access: "public", description: "API endpoint catalog with required roles" },
 ];

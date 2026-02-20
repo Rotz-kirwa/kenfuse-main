@@ -33,3 +33,4 @@ In `backend/.env`, ensure `CORS_ORIGINS` includes your admin URL, e.g.
 ```env
 CORS_ORIGINS="http://localhost:8080,http://localhost:5174,https://admin.yourdomain.com"
 ```
+# kenfise-new-admin
