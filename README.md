@@ -1,73 +1,71 @@
-# Welcome to your Lovable project
+# Kenfuse
 
-## Project info
+Kenfuse is a React frontend with a new Express + PostgreSQL backend for:
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+- user registration and login
+- legacy planning
+- fundraising and contributions
+- memorial pages and tributes
+- marketplace listings
+- activity logs
 
-## How can I edit this code?
+## Project structure
 
-There are several ways of editing your application.
+- `src/`: frontend (Vite + React + Tailwind)
+- `backend/`: API service (Express + Prisma)
+- `docker-compose.yml`: local PostgreSQL
 
-**Use Lovable**
+## Quick start
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### 1) Frontend
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Frontend runs on `http://localhost:8080`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### 2) Database
 
-**Use GitHub Codespaces**
+```bash
+npm run db:up
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+PostgreSQL runs on `localhost:5432`.
 
-## What technologies are used for this project?
+### 3) Backend
 
-This project is built with:
+```bash
+cd backend
+cp .env.example .env
+npm install
+npm run prisma:generate
+npm run prisma:migrate -- --name init
+npm run prisma:seed
+npm run dev
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Backend runs on `http://localhost:4000`.
 
-## How can I deploy this project?
+## Core API routes
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/legacy-plan/me`
+- `PUT /api/legacy-plan/me`
+- `GET /api/fundraisers`
+- `POST /api/fundraisers`
+- `POST /api/fundraisers/:id/contributions`
+- `GET /api/memorials`
+- `POST /api/memorials`
+- `POST /api/memorials/:id/tributes`
+- `GET /api/marketplace/categories`
+- `GET /api/marketplace/listings`
+- `POST /api/marketplace/listings`
+- `GET /api/activities/me`
+- `GET /api/activities/feed`
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+For detailed backend instructions, see `backend/README.md`.
+# kenfuse-main

@@ -1,0 +1,566 @@
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { apiRequest, clearToken, getToken, setToken } from "./lib/api";
+
+interface Stats {
+  users: number;
+  legacyPlans: number;
+  activeFundraisers: number;
+  totalRaised: number;
+  memorials: number;
+  activeListings: number;
+  activities: number;
+}
+
+interface AdminUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: "ADMIN" | "USER";
+  createdAt: string;
+}
+
+interface Fundraiser {
+  id: string;
+  title: string;
+  owner: { fullName: string };
+  status: "ACTIVE" | "CLOSED";
+  totalRaised: number;
+  targetAmount: number;
+  currency: string;
+}
+
+interface Memorial {
+  id: string;
+  title: string;
+  owner: { fullName: string };
+  isPublic: boolean;
+  createdAt: string;
+}
+
+interface Listing {
+  id: string;
+  title: string;
+  vendorName: string;
+  category: { name: string };
+  status: "ACTIVE" | "INACTIVE";
+  imageUrl: string | null;
+  currency: string;
+  price: number;
+}
+
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface EventItem {
+  id: string;
+  type: string;
+  entityType: string;
+  entityId: string;
+  createdAt: string;
+}
+
+interface Overview {
+  stats: Stats;
+  fundraiserList: Fundraiser[];
+  memorialList: Memorial[];
+  listingList: Listing[];
+  recentActivities: EventItem[];
+  usersList: AdminUser[];
+  rolesSummary: {
+    admin: number;
+    user: number;
+  };
+}
+
+interface CategoriesResponse {
+  categories: Category[];
+}
+
+interface LoginResponse {
+  user: {
+    role: string;
+  };
+  token: string;
+}
+
+const emptyStats: Stats = {
+  users: 0,
+  legacyPlans: 0,
+  activeFundraisers: 0,
+  totalRaised: 0,
+  memorials: 0,
+  activeListings: 0,
+  activities: 0,
+};
+
+type Tab = "fundraisers" | "memorials" | "marketplace" | "activity";
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>("fundraisers");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [authenticated, setAuthenticated] = useState(Boolean(getToken()));
+
+  const [stats, setStats] = useState<Stats>(emptyStats);
+  const [fundraisers, setFundraisers] = useState<Fundraiser[]>([]);
+  const [memorials, setMemorials] = useState<Memorial[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [activities, setActivities] = useState<EventItem[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [rolesSummary, setRolesSummary] = useState({ admin: 0, user: 0 });
+  const [creatingListing, setCreatingListing] = useState(false);
+  const [createCategoryId, setCreateCategoryId] = useState("");
+  const [createVendorName, setCreateVendorName] = useState("");
+  const [createTitle, setCreateTitle] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createPrice, setCreatePrice] = useState("");
+  const [createImageUrl, setCreateImageUrl] = useState("");
+
+  const coverage = useMemo(() => {
+    if (!stats.users) {
+      return 0;
+    }
+    return Math.round((stats.legacyPlans / stats.users) * 100);
+  }, [stats]);
+
+  async function loadOverview() {
+    try {
+      setError(null);
+      const [data, categoriesData] = await Promise.all([
+        apiRequest<Overview>("/api/admin/overview"),
+        apiRequest<CategoriesResponse>("/api/marketplace/categories"),
+      ]);
+      setStats(data.stats);
+      setFundraisers(data.fundraiserList);
+      setMemorials(data.memorialList);
+      setListings(data.listingList);
+      setActivities(data.recentActivities);
+      setUsers(data.usersList);
+      setRolesSummary(data.rolesSummary);
+      setCategories(categoriesData.categories);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!authenticated) {
+      setLoading(false);
+      return;
+    }
+    void loadOverview();
+  }, [authenticated]);
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoginLoading(true);
+    setError(null);
+
+    try {
+      const result = await apiRequest<LoginResponse>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+
+      if (result.user.role !== "ADMIN") {
+        throw new Error("Admin access required");
+      }
+
+      setToken(result.token);
+      setAuthenticated(true);
+      setLoading(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+      clearToken();
+      setAuthenticated(false);
+    } finally {
+      setLoginLoading(false);
+    }
+  }
+
+  function handleLogout() {
+    clearToken();
+    setAuthenticated(false);
+    setStats(emptyStats);
+    setFundraisers([]);
+    setMemorials([]);
+    setListings([]);
+    setActivities([]);
+    setUsers([]);
+    setRolesSummary({ admin: 0, user: 0 });
+    setError(null);
+  }
+
+  async function toggleFundraiser(item: Fundraiser) {
+    setActionId(item.id);
+    try {
+      await apiRequest(`/api/admin/fundraisers/${item.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: item.status === "ACTIVE" ? "CLOSED" : "ACTIVE" }),
+      });
+      setRefreshing(true);
+      await loadOverview();
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function toggleMemorial(item: Memorial) {
+    setActionId(item.id);
+    try {
+      await apiRequest(`/api/admin/memorials/${item.id}/visibility`, {
+        method: "PATCH",
+        body: JSON.stringify({ isPublic: !item.isPublic }),
+      });
+      setRefreshing(true);
+      await loadOverview();
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function toggleListing(item: Listing) {
+    setActionId(item.id);
+    try {
+      await apiRequest(`/api/admin/listings/${item.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }),
+      });
+      setRefreshing(true);
+      await loadOverview();
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function updateListingImage(item: Listing, imageUrl: string | null) {
+    setActionId(item.id);
+    try {
+      await apiRequest(`/api/admin/listings/${item.id}/image`, {
+        method: "PATCH",
+        body: JSON.stringify({ imageUrl }),
+      });
+      setRefreshing(true);
+      await loadOverview();
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function createListing(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const parsedPrice = Number(createPrice);
+    if (!Number.isInteger(parsedPrice) || parsedPrice <= 0) {
+      setError("Price must be a positive number");
+      return;
+    }
+
+    setCreatingListing(true);
+
+    try {
+      await apiRequest("/api/admin/listings", {
+        method: "POST",
+        body: JSON.stringify({
+          categoryId: createCategoryId,
+          vendorName: createVendorName.trim(),
+          title: createTitle.trim(),
+          description: createDescription.trim(),
+          price: parsedPrice,
+          currency: "KES",
+          imageUrl: createImageUrl.trim() || undefined,
+        }),
+      });
+
+      setCreateCategoryId("");
+      setCreateVendorName("");
+      setCreateTitle("");
+      setCreateDescription("");
+      setCreatePrice("");
+      setCreateImageUrl("");
+      setRefreshing(true);
+      await loadOverview();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create listing");
+    } finally {
+      setCreatingListing(false);
+    }
+  }
+
+  if (!authenticated) {
+    return (
+      <main className="container">
+        <div className="topbar">
+          <div>
+            <h1 className="title">Kenfuse Admin</h1>
+            <p className="subtitle">Independent admin deployment for platform operations and moderation.</p>
+          </div>
+        </div>
+        <section className="notice">
+          <h3>Admin Login</h3>
+          <form className="auth-form" onSubmit={handleLogin}>
+            <label>
+              Email
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            </label>
+            <label>
+              Password
+              <input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} required />
+            </label>
+            <label className="small" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <input type="checkbox" checked={showPassword} onChange={(event) => setShowPassword(event.target.checked)} />
+              Show password
+            </label>
+            <button className="primary" type="submit" disabled={loginLoading}>
+              {loginLoading ? "Signing In..." : "Sign In"}
+            </button>
+          </form>
+          {error ? <p className="small error-text">{error}</p> : null}
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="app-shell">
+      <aside className="left-rail">
+        <div className="rail-brand">
+          <h1 className="title">Kenfuse Admin</h1>
+          <p className="subtitle">Operations and moderation</p>
+        </div>
+
+        <nav className="rail-nav">
+          <button className={`tab-btn ${tab === "fundraisers" ? "active" : ""}`} onClick={() => setTab("fundraisers")}>Fundraisers</button>
+          <button className={`tab-btn ${tab === "memorials" ? "active" : ""}`} onClick={() => setTab("memorials")}>Memorials</button>
+          <button className={`tab-btn ${tab === "marketplace" ? "active" : ""}`} onClick={() => setTab("marketplace")}>Marketplace</button>
+          <button className={`tab-btn ${tab === "activity" ? "active" : ""}`} onClick={() => setTab("activity")}>Activity</button>
+        </nav>
+
+        <div className="rail-actions">
+          <button className="primary" onClick={() => { setRefreshing(true); void loadOverview(); }} disabled={refreshing || loading}>
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+          <button onClick={handleLogout}>Sign Out</button>
+        </div>
+      </aside>
+
+      <section className="main-area">
+        <div className="container">
+          {loading ? <div className="notice">Loading dashboard...</div> : null}
+          {error ? <div className="notice">{error}. Ensure this account is ADMIN and backend CORS allows this admin origin.</div> : null}
+
+          {!loading && !error ? (
+            <>
+              <section className="grid">
+                <article className="card"><div>Users</div><div className="metric">{stats.users}</div></article>
+                <article className="card"><div>Active Fundraisers</div><div className="metric">{stats.activeFundraisers}</div></article>
+                <article className="card"><div>Total Raised (KES)</div><div className="metric">{stats.totalRaised.toLocaleString()}</div></article>
+                <article className="card"><div>Activity Events</div><div className="metric">{stats.activities}</div></article>
+              </section>
+
+              <section className="card progress">
+                <h3>Role Summary</h3>
+                <p className="small">ADMIN: {rolesSummary.admin} • USER: {rolesSummary.user}</p>
+              </section>
+
+              <section className="card progress">
+                <h3>Legacy Plan Adoption</h3>
+                <div className="progress-track"><div className="progress-bar" style={{ width: `${coverage}%` }} /></div>
+                <p className="small">{stats.legacyPlans} of {stats.users} users ({coverage}%)</p>
+              </section>
+
+              {tab === "fundraisers" ? (
+                <section className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Title</th><th>Owner</th><th>Progress</th><th>Status</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                      {fundraisers.map((f) => (
+                        <tr key={f.id}>
+                          <td>{f.title}</td>
+                          <td>{f.owner.fullName}</td>
+                          <td>{f.currency} {f.totalRaised.toLocaleString()} / {f.targetAmount.toLocaleString()}</td>
+                          <td><span className={`badge ${f.status === "ACTIVE" ? "ok" : "bad"}`}>{f.status}</span></td>
+                          <td className="row-actions">
+                            <button onClick={() => void toggleFundraiser(f)} disabled={actionId === f.id}>{f.status === "ACTIVE" ? "Close" : "Reopen"}</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              ) : null}
+
+              {tab === "memorials" ? (
+                <section className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Title</th><th>Owner</th><th>Created</th><th>Visibility</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                      {memorials.map((m) => (
+                        <tr key={m.id}>
+                          <td>{m.title}</td>
+                          <td>{m.owner.fullName}</td>
+                          <td>{new Date(m.createdAt).toLocaleDateString()}</td>
+                          <td><span className={`badge ${m.isPublic ? "ok" : "bad"}`}>{m.isPublic ? "PUBLIC" : "PRIVATE"}</span></td>
+                          <td><button onClick={() => void toggleMemorial(m)} disabled={actionId === m.id}>{m.isPublic ? "Make Private" : "Make Public"}</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              ) : null}
+
+              {tab === "marketplace" ? (
+                <>
+                  <section className="card">
+                    <h3>Create Marketplace Listing</h3>
+                    <form className="auth-form" onSubmit={createListing}>
+                      <label>
+                        Category
+                        <select value={createCategoryId} onChange={(event) => setCreateCategoryId(event.target.value)} required>
+                          <option value="">Select category</option>
+                          {categories.map((category) => (
+                            <option key={category.id} value={category.id}>{category.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Vendor Name
+                        <input value={createVendorName} onChange={(event) => setCreateVendorName(event.target.value)} required />
+                      </label>
+                      <label>
+                        Title
+                        <input value={createTitle} onChange={(event) => setCreateTitle(event.target.value)} required />
+                      </label>
+                      <label>
+                        Description
+                        <input value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} required />
+                      </label>
+                      <label>
+                        Price (KES)
+                        <input type="number" min={1} value={createPrice} onChange={(event) => setCreatePrice(event.target.value)} required />
+                      </label>
+                      <label>
+                        Image URL (admin only)
+                        <input type="url" value={createImageUrl} onChange={(event) => setCreateImageUrl(event.target.value)} />
+                      </label>
+                      <button className="primary" type="submit" disabled={creatingListing}>
+                        {creatingListing ? "Creating..." : "Create Listing"}
+                      </button>
+                    </form>
+                  </section>
+
+                  <section className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr><th>Title</th><th>Vendor</th><th>Category</th><th>Image</th><th>Price</th><th>Status</th><th>Action</th></tr>
+                      </thead>
+                      <tbody>
+                        {listings.map((l) => (
+                          <tr key={l.id}>
+                            <td>{l.title}</td>
+                            <td>{l.vendorName}</td>
+                            <td>{l.category.name}</td>
+                            <td>
+                              <div className="row-actions">
+                                {l.imageUrl ? (
+                                  <a href={l.imageUrl} target="_blank" rel="noreferrer">Preview</a>
+                                ) : (
+                                  <span className="small">No image</span>
+                                )}
+                              </div>
+                            </td>
+                            <td>{l.currency} {l.price.toLocaleString()}</td>
+                            <td><span className={`badge ${l.status === "ACTIVE" ? "ok" : "bad"}`}>{l.status}</span></td>
+                            <td>
+                              <div className="row-actions">
+                                <button onClick={() => void toggleListing(l)} disabled={actionId === l.id}>
+                                  {l.status === "ACTIVE" ? "Disable" : "Activate"}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const next = window.prompt("Enter image URL", l.imageUrl ?? "");
+                                    if (next === null) return;
+                                    const trimmed = next.trim();
+                                    void updateListingImage(l, trimmed ? trimmed : null);
+                                  }}
+                                  disabled={actionId === l.id}
+                                >
+                                  {l.imageUrl ? "Update Image" : "Add Image"}
+                                </button>
+                                {l.imageUrl ? (
+                                  <button onClick={() => void updateListingImage(l, null)} disabled={actionId === l.id}>
+                                    Remove Image
+                                  </button>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </section>
+                </>
+              ) : null}
+
+              {tab === "activity" ? (
+                <section className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Event</th><th>Entity</th><th>Reference</th><th>Time</th></tr>
+                    </thead>
+                    <tbody>
+                      {activities.map((a) => (
+                        <tr key={a.id}>
+                          <td>{a.type}</td>
+                          <td>{a.entityType}</td>
+                          <td>{a.entityId}</td>
+                          <td>{new Date(a.createdAt).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              ) : null}
+
+              <section className="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>User</th><th>Email</th><th>Role</th><th>Created</th></tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id}>
+                        <td>{u.fullName}</td>
+                        <td>{u.email}</td>
+                        <td><span className={`badge ${u.role === "ADMIN" ? "ok" : "bad"}`}>{u.role}</span></td>
+                        <td>{new Date(u.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+
+            </>
+          ) : null}
+        </div>
+      </section>
+    </main>
+  );
+}

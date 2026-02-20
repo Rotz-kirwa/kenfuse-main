@@ -12,6 +12,7 @@ import Marketplace from "./pages/Marketplace";
 import Fundraiser from "./pages/Fundraiser";
 import Memorials from "./pages/Memorials";
 import Auth from "./pages/Auth";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -20,7 +21,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/fundraiser" element={<Fundraiser />} />
           <Route path="/memorials" element={<Memorials />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
