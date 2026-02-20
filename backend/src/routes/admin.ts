@@ -1,5 +1,5 @@
 import { ListingStatus, FundraiserStatus } from "@prisma/client";
-import { Router } from "express";
+import { createSafeRouter } from "../lib/safe-router.js";
 import { z } from "zod";
 import { prisma } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -8,7 +8,7 @@ import { logActivity } from "../lib/activity.js";
 import { ADMIN_SERVICE_ACTIVITY_TYPE, getServiceDefinitionById, listServices } from "../lib/services-catalog.js";
 import { getListingContactMap, LISTING_CONTACT_ACTIVITY_TYPE } from "../lib/listing-contacts.js";
 
-const router = Router();
+const router = createSafeRouter();
 
 router.use(requireAuth, requireAdmin);
 

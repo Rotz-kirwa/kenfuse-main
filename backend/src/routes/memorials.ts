@@ -1,11 +1,11 @@
-import { Router } from "express";
+import { createSafeRouter } from "../lib/safe-router.js";
 import crypto from "crypto";
 import { z } from "zod";
 import { prisma } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { logActivity } from "../lib/activity.js";
 
-const router = Router();
+const router = createSafeRouter();
 
 const memorialSchema = z.object({
   fullName: z.string().min(3).max(140),

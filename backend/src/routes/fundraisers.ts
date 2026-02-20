@@ -1,12 +1,12 @@
 import { FundraiserStatus, Prisma } from "@prisma/client";
-import { Router } from "express";
+import { createSafeRouter } from "../lib/safe-router.js";
 import { z } from "zod";
 import { verifyToken } from "../lib/auth.js";
 import { prisma } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { logActivity } from "../lib/activity.js";
 
-const router = Router();
+const router = createSafeRouter();
 type InviteVisibility = "PUBLIC" | "LINK_ONLY" | "PRIVATE";
 const INVITE_ACTIVITY_TYPE = "FUNDRAISER_INVITE_CONFIG";
 

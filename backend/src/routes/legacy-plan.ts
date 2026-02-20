@@ -1,11 +1,11 @@
 import { Prisma } from "@prisma/client";
-import { Router } from "express";
+import { createSafeRouter } from "../lib/safe-router.js";
 import { z } from "zod";
 import { prisma } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { logActivity } from "../lib/activity.js";
 
-const router = Router();
+const router = createSafeRouter();
 
 const legacyPlanSchema = z.object({
   wishes: z.string().max(10000).optional(),

@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { createSafeRouter } from "../lib/safe-router.js";
 import { z } from "zod";
 import { prisma } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -6,7 +6,7 @@ import { requireAdmin } from "../middleware/require-admin.js";
 import { logActivity } from "../lib/activity.js";
 import { getListingContactMap, LISTING_CONTACT_ACTIVITY_TYPE } from "../lib/listing-contacts.js";
 
-const router = Router();
+const router = createSafeRouter();
 
 router.get("/categories", async (_req, res) => {
   const categories = await prisma.marketplaceCategory.findMany({

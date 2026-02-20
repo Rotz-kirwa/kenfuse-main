@@ -1,8 +1,8 @@
-import { Router } from "express";
+import { createSafeRouter } from "../lib/safe-router.js";
 import { prisma } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
 
-const router = Router();
+const router = createSafeRouter();
 
 router.get("/me", requireAuth, async (req, res) => {
   const activities = await prisma.activity.findMany({
