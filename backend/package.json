@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
+    "render:bootstrap": "node scripts/render-bootstrap.mjs",
     "db:push": "prisma db push",
     "db:setup": "./scripts/db-bootstrap.sh",
     "admin:promote": "tsx scripts/promote-admin.ts",

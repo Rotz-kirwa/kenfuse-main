@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: starter
     rootDir: backend
-    buildCommand: npm install --include=dev && npm run build
+    buildCommand: npm install --include=dev && npm run build && npx prisma db push && npm run render:bootstrap
     startCommand: npm run start
     healthCheckPath: /health
     envVars:
