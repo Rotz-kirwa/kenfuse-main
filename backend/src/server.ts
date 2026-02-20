@@ -16,11 +16,28 @@ import servicesRoutes from "./routes/services.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
 const app = express();
-const allowedOrigins = env.CORS_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean);
+const allowedOrigins = env.CORS_ORIGINS.split(",").map((origin) => normalizeOrigin(origin)).filter(Boolean);
 const isDevelopment = env.NODE_ENV !== "production";
+
+function normalizeOrigin(origin: string) {
+  return origin.trim().replace(/\/+$/, "").toLowerCase();
+}
 
 function isAllowedDevelopmentOrigin(origin: string) {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\d{1,3}(\.\d{1,3}){3})(:\d+)?$/.test(origin);
+}
+
+function isAllowedProductionOrigin(origin: string) {
+  try {
+    const { protocol, hostname } = new URL(origin);
+    if (protocol !== "https:") return false;
+    if (hostname === "kenfuse.com" || hostname.endsWith(".kenfuse.com")) return true;
+    if (hostname.endsWith(".vercel.app")) return true;
+    if (hostname.endsWith(".onrender.com")) return true;
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 app.use(helmet());
@@ -32,12 +49,19 @@ app.use(
         return;
       }
 
-      if (allowedOrigins.includes(origin)) {
+      const normalizedOrigin = normalizeOrigin(origin);
+
+      if (allowedOrigins.includes(normalizedOrigin)) {
         callback(null, true);
         return;
       }
 
-      if (isDevelopment && isAllowedDevelopmentOrigin(origin)) {
+      if (isDevelopment && isAllowedDevelopmentOrigin(normalizedOrigin)) {
+        callback(null, true);
+        return;
+      }
+
+      if (!isDevelopment && isAllowedProductionOrigin(normalizedOrigin)) {
         callback(null, true);
         return;
       }
