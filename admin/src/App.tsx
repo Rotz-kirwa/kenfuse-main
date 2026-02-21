@@ -64,6 +64,17 @@ interface EventItem {
 
 interface Overview {
   stats: Stats;
+  legacyPlanList: Array<{
+    id: string;
+    userId: string;
+    user: { id: string; fullName: string; email: string };
+    hasWishes: boolean;
+    hasInstructions: boolean;
+    hasAssets: boolean;
+    hasBeneficiaries: boolean;
+    updatedAt: string;
+    createdAt: string;
+  }>;
   fundraiserList: Fundraiser[];
   memorialList: Memorial[];
   listingList: Listing[];
@@ -147,7 +158,7 @@ function getVendorContact(vendorName: string) {
   return vendorContacts[vendorName.trim().toLowerCase()] ?? "+254 700 000 999";
 }
 
-type Tab = "fundraisers" | "memorials" | "marketplace" | "vendors" | "services" | "activity" | "users";
+type Tab = "legacy" | "fundraisers" | "memorials" | "marketplace" | "vendors" | "services" | "activity" | "users";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("fundraisers");
@@ -165,6 +176,7 @@ export default function App() {
   const [stats, setStats] = useState<Stats>(emptyStats);
   const [fundraisers, setFundraisers] = useState<Fundraiser[]>([]);
   const [memorials, setMemorials] = useState<Memorial[]>([]);
+  const [legacyPlans, setLegacyPlans] = useState<Overview["legacyPlanList"]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activities, setActivities] = useState<EventItem[]>([]);
@@ -198,6 +210,7 @@ export default function App() {
         apiRequest<VendorApplicationsResponse>("/api/admin/vendor-applications"),
       ]);
       setStats(data.stats);
+      setLegacyPlans(data.legacyPlanList ?? []);
       setFundraisers(data.fundraiserList);
       setMemorials(data.memorialList);
       setListings(data.listingList);
@@ -256,6 +269,7 @@ export default function App() {
     setStats(emptyStats);
     setFundraisers([]);
     setMemorials([]);
+    setLegacyPlans([]);
     setListings([]);
     setServices([]);
     setVendorApplications([]);
@@ -455,6 +469,7 @@ export default function App() {
 
         <nav className="rail-nav">
           <button className={`tab-btn ${tab === "fundraisers" ? "active" : ""}`} onClick={() => setTab("fundraisers")}>Fundraisers</button>
+          <button className={`tab-btn ${tab === "legacy" ? "active" : ""}`} onClick={() => setTab("legacy")}>Legacy & Wills</button>
           <button className={`tab-btn ${tab === "memorials" ? "active" : ""}`} onClick={() => setTab("memorials")}>Memorials</button>
           <button className={`tab-btn ${tab === "marketplace" ? "active" : ""}`} onClick={() => setTab("marketplace")}>Marketplace</button>
           <button className={`tab-btn ${tab === "vendors" ? "active" : ""}`} onClick={() => setTab("vendors")}>Vendor Applications</button>
@@ -495,6 +510,34 @@ export default function App() {
                 <div className="progress-track"><div className="progress-bar" style={{ width: `${coverage}%` }} /></div>
                 <p className="small">{stats.legacyPlans} of {stats.users} users ({coverage}%)</p>
               </section>
+
+              {tab === "legacy" ? (
+                <section className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>User</th><th>Email</th><th>Wishes</th><th>Will/Instructions</th><th>Assets</th><th>Beneficiaries</th><th>Last Updated</th></tr>
+                    </thead>
+                    <tbody>
+                      {legacyPlans.map((plan) => (
+                        <tr key={plan.id}>
+                          <td>{plan.user.fullName}</td>
+                          <td>{plan.user.email}</td>
+                          <td><span className={`badge ${plan.hasWishes ? "ok" : "bad"}`}>{plan.hasWishes ? "YES" : "NO"}</span></td>
+                          <td><span className={`badge ${plan.hasInstructions ? "ok" : "bad"}`}>{plan.hasInstructions ? "YES" : "NO"}</span></td>
+                          <td><span className={`badge ${plan.hasAssets ? "ok" : "bad"}`}>{plan.hasAssets ? "YES" : "NO"}</span></td>
+                          <td><span className={`badge ${plan.hasBeneficiaries ? "ok" : "bad"}`}>{plan.hasBeneficiaries ? "YES" : "NO"}</span></td>
+                          <td>{new Date(plan.updatedAt).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      {legacyPlans.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="small">No legacy/will records yet.</td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </section>
+              ) : null}
 
               {tab === "fundraisers" ? (
                 <section className="table-wrap">

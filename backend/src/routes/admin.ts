@@ -85,6 +85,7 @@ router.get("/overview", async (_req, res) => {
   const [
     users,
     legacyPlans,
+    legacyPlanList,
     activeFundraisers,
     totalRaised,
     memorials,
@@ -97,6 +98,15 @@ router.get("/overview", async (_req, res) => {
   ] = await Promise.all([
     prisma.user.count(),
     prisma.legacyPlan.count(),
+    prisma.legacyPlan.findMany({
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 30,
+    }),
     prisma.fundraiser.count({ where: { status: "ACTIVE" } }),
     prisma.fundraiser.aggregate({ _sum: { totalRaised: true } }),
     prisma.memorial.count(),
@@ -132,6 +142,17 @@ router.get("/overview", async (_req, res) => {
       activeListings,
       activities,
     },
+    legacyPlanList: legacyPlanList.map((plan) => ({
+      id: plan.id,
+      userId: plan.userId,
+      user: plan.user,
+      hasWishes: Boolean(plan.wishes && plan.wishes.trim().length > 0),
+      hasInstructions: Boolean(plan.instructions && plan.instructions.trim().length > 0),
+      hasAssets: Array.isArray(plan.assets) ? plan.assets.length > 0 : Boolean(plan.assets),
+      hasBeneficiaries: Array.isArray(plan.beneficiaries) ? plan.beneficiaries.length > 0 : Boolean(plan.beneficiaries),
+      updatedAt: plan.updatedAt,
+      createdAt: plan.createdAt,
+    })),
     recentActivities,
     fundraiserList,
     memorialList,
