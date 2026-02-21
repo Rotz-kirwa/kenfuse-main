@@ -23,7 +23,8 @@
     "marketplace:import:event": "tsx scripts/import-event-coordination.ts",
     "marketplace:import:flowers": "tsx scripts/import-flowers-wreaths.ts",
     "marketplace:import:grave": "tsx scripts/import-grave-services.ts",
-    "marketplace:import:pa": "tsx scripts/import-pa-systems.ts"
+    "marketplace:import:pa": "tsx scripts/import-pa-systems.ts",
+    "services:import:images": "tsx scripts/import-service-images.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
