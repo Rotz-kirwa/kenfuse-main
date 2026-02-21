@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import { apiRequest, clearToken, getToken, setToken } from "./lib/api";
 
 interface Stats {
@@ -192,6 +192,7 @@ export default function App() {
   const [createVendorContact, setCreateVendorContact] = useState("");
   const [createPrice, setCreatePrice] = useState("");
   const [createImageUrl, setCreateImageUrl] = useState("");
+  const [expandedVendorId, setExpandedVendorId] = useState<string | null>(null);
 
   const coverage = useMemo(() => {
     if (!stats.users) {
@@ -372,12 +373,15 @@ export default function App() {
   ) {
     setActionId(application.id);
     try {
+      setError(null);
       await apiRequest(`/api/admin/vendor-applications/${application.id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
       setRefreshing(true);
       await loadOverview();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update vendor application status");
     } finally {
       setActionId(null);
     }
@@ -711,43 +715,54 @@ export default function App() {
                     </thead>
                     <tbody>
                       {vendorApplications.map((application) => (
-                        <tr key={application.id}>
-                          <td>
-                            <strong>{application.businessName}</strong>
-                            <div className="small">{application.businessType}</div>
-                          </td>
-                          <td>
-                            <div>{application.ownerFullName}</div>
-                            <div className="small">{application.idOrRegistrationNumber}</div>
-                          </td>
-                          <td>
-                            <a href={`mailto:${application.email}`}>{application.email}</a>
-                            <div className="small">
-                              <a href={`tel:${application.phoneNumber.replace(/[^\d+]/g, "")}`}>{application.phoneNumber}</a>
-                            </div>
-                          </td>
-                          <td>{application.businessCategory}</td>
-                          <td>{application.county}</td>
-                          <td>{application.offersDelivery ? "Yes" : "No"}</td>
-                          <td>{application.yearsInBusiness}</td>
-                          <td><span className={`badge ${application.status === "APPROVED" ? "ok" : application.status === "REJECTED" ? "bad" : ""}`}>{application.status}</span></td>
-                          <td>
-                            <div className="row-actions">
-                              <button onClick={() => void updateVendorApplicationStatus(application, "APPROVED")} disabled={actionId === application.id}>Approve</button>
-                              <button onClick={() => void updateVendorApplicationStatus(application, "REJECTED")} disabled={actionId === application.id}>Reject</button>
-                              <button onClick={() => void updateVendorApplicationStatus(application, "PENDING")} disabled={actionId === application.id}>Reset</button>
-                              <button
-                                onClick={() => {
-                                  window.alert(
-                                    `Description:\n${application.businessDescription}\n\nAddress: ${application.physicalAddress ?? "-"}\nWhatsApp: ${application.whatsappNumber ?? "-"}\nSubmitted: ${new Date(application.submittedAt).toLocaleString()}`
-                                  );
-                                }}
-                              >
-                                View
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                        <Fragment key={application.id}>
+                          <tr key={application.id}>
+                            <td>
+                              <strong>{application.businessName}</strong>
+                              <div className="small">{application.businessType}</div>
+                            </td>
+                            <td>
+                              <div>{application.ownerFullName}</div>
+                              <div className="small">{application.idOrRegistrationNumber}</div>
+                            </td>
+                            <td>
+                              <a href={`mailto:${application.email}`}>{application.email}</a>
+                              <div className="small">
+                                <a href={`tel:${application.phoneNumber.replace(/[^\d+]/g, "")}`}>{application.phoneNumber}</a>
+                              </div>
+                            </td>
+                            <td>{application.businessCategory}</td>
+                            <td>{application.county}</td>
+                            <td>{application.offersDelivery ? "Yes" : "No"}</td>
+                            <td>{application.yearsInBusiness}</td>
+                            <td><span className={`badge ${application.status === "APPROVED" ? "ok" : application.status === "REJECTED" ? "bad" : ""}`}>{application.status}</span></td>
+                            <td>
+                              <div className="row-actions">
+                                <button onClick={() => void updateVendorApplicationStatus(application, "APPROVED")} disabled={actionId === application.id}>Approve</button>
+                                <button onClick={() => void updateVendorApplicationStatus(application, "REJECTED")} disabled={actionId === application.id}>Reject</button>
+                                <button onClick={() => void updateVendorApplicationStatus(application, "PENDING")} disabled={actionId === application.id}>Reset</button>
+                                <button onClick={() => setExpandedVendorId((current) => (current === application.id ? null : application.id))}>
+                                  {expandedVendorId === application.id ? "Hide" : "View"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {expandedVendorId === application.id ? (
+                            <tr>
+                              <td colSpan={9}>
+                                <div className="card" style={{ margin: 0 }}>
+                                  <h3>Application Details</h3>
+                                  <p className="small"><strong>Description:</strong> {application.businessDescription}</p>
+                                  <p className="small"><strong>Physical Address:</strong> {application.physicalAddress ?? "-"}</p>
+                                  <p className="small"><strong>WhatsApp:</strong> {application.whatsappNumber ?? "-"}</p>
+                                  <p className="small"><strong>Submitted:</strong> {new Date(application.submittedAt).toLocaleString()}</p>
+                                  <p className="small"><strong>Reviewed:</strong> {application.reviewedAt ? new Date(application.reviewedAt).toLocaleString() : "-"}</p>
+                                  <p className="small"><strong>Review Note:</strong> {application.reviewNote ?? "-"}</p>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
                       ))}
                       {vendorApplications.length === 0 ? (
                         <tr>
