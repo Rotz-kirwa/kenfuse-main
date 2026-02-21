@@ -208,6 +208,8 @@ export default function App() {
   const [createVendorContact, setCreateVendorContact] = useState("");
   const [createPrice, setCreatePrice] = useState("");
   const [createImageUrl, setCreateImageUrl] = useState("");
+  const [bulkServiceInput, setBulkServiceInput] = useState("");
+  const [bulkServiceLoading, setBulkServiceLoading] = useState(false);
   const [expandedVendorId, setExpandedVendorId] = useState<string | null>(null);
   const [expandedLegacyId, setExpandedLegacyId] = useState<string | null>(null);
   const [legacyDetailById, setLegacyDetailById] = useState<Record<string, LegacyPlanDetailResponse["legacyPlan"]>>({});
@@ -382,6 +384,53 @@ export default function App() {
       await loadOverview();
     } finally {
       setActionId(null);
+    }
+  }
+
+  async function applyBulkServiceImages() {
+    const lines = bulkServiceInput
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      setError("Paste at least one service image line");
+      return;
+    }
+
+    const byId = new Map(services.map((item) => [item.id, item]));
+    const byTitle = new Map(services.map((item) => [item.title.toLowerCase(), item]));
+
+    const updates: Array<{ id: string; imageUrl: string | null }> = [];
+    for (const line of lines) {
+      const parts = line.split(",");
+      if (parts.length < 2) continue;
+      const key = parts[0].trim();
+      const imageUrl = parts.slice(1).join(",").trim();
+      const service = byId.get(key) ?? byTitle.get(key.toLowerCase());
+      if (!service) continue;
+      updates.push({ id: service.id, imageUrl: imageUrl || null });
+    }
+
+    if (updates.length === 0) {
+      setError("No valid lines found. Use: service-id-or-title,image-url");
+      return;
+    }
+
+    setBulkServiceLoading(true);
+    try {
+      setError(null);
+      await apiRequest("/api/admin/services/bulk-images", {
+        method: "POST",
+        body: JSON.stringify({ updates }),
+      });
+      setBulkServiceInput("");
+      setRefreshing(true);
+      await loadOverview();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to apply bulk service images");
+    } finally {
+      setBulkServiceLoading(false);
     }
   }
 
@@ -894,80 +943,98 @@ export default function App() {
               ) : null}
 
               {tab === "services" ? (
-                <section className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr><th>Service</th><th>Image</th><th>Status</th><th>Order</th><th>Updated</th><th>Action</th></tr>
-                    </thead>
-                    <tbody>
-                      {services.map((service) => (
-                        <tr key={service.id}>
-                          <td>{service.title}</td>
-                          <td>
-                            {service.imageUrl ? (
-                              <a href={service.imageUrl} target="_blank" rel="noreferrer">Preview</a>
-                            ) : (
-                              <span className="small">No image</span>
-                            )}
-                          </td>
-                          <td><span className={`badge ${service.isActive ? "ok" : "bad"}`}>{service.isActive ? "ACTIVE" : "HIDDEN"}</span></td>
-                          <td>{service.sortOrder}</td>
-                          <td>{service.updatedAt ? new Date(service.updatedAt).toLocaleString() : "-"}</td>
-                          <td>
-                            <div className="row-actions">
-                              <button
-                                onClick={() => void updateService(service, { isActive: !service.isActive })}
-                                disabled={actionId === service.id}
-                              >
-                                {service.isActive ? "Hide" : "Show"}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const next = window.prompt("Edit service title", service.title);
-                                  if (next === null) return;
-                                  const trimmed = next.trim();
-                                  if (!trimmed) return;
-                                  void updateService(service, { title: trimmed });
-                                }}
-                                disabled={actionId === service.id}
-                              >
-                                Edit Title
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const next = window.prompt("Enter image URL", service.imageUrl ?? "");
-                                  if (next === null) return;
-                                  const trimmed = next.trim();
-                                  void updateService(service, { imageUrl: trimmed ? trimmed : null });
-                                }}
-                                disabled={actionId === service.id}
-                              >
-                                {service.imageUrl ? "Update Image" : "Add Image"}
-                              </button>
+                <>
+                  <section className="card">
+                    <h3>Bulk Service Images</h3>
+                    <p className="small">Paste one per line: <code>service-id-or-title,image-url</code></p>
+                    <textarea
+                      value={bulkServiceInput}
+                      onChange={(event) => setBulkServiceInput(event.target.value)}
+                      placeholder={"public-address-system,https://...\nFlowers/Wreaths,https://..."}
+                      style={{ width: "100%", minHeight: 120, marginTop: 8, border: "1px solid var(--line)", borderRadius: 10, padding: 10 }}
+                    />
+                    <div className="row-actions" style={{ marginTop: 10 }}>
+                      <button className="primary" onClick={() => void applyBulkServiceImages()} disabled={bulkServiceLoading}>
+                        {bulkServiceLoading ? "Saving..." : "Save All Images"}
+                      </button>
+                    </div>
+                  </section>
+
+                  <section className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr><th>Service</th><th>Image</th><th>Status</th><th>Order</th><th>Updated</th><th>Action</th></tr>
+                      </thead>
+                      <tbody>
+                        {services.map((service) => (
+                          <tr key={service.id}>
+                            <td>{service.title}</td>
+                            <td>
                               {service.imageUrl ? (
-                                <button onClick={() => void updateService(service, { imageUrl: null })} disabled={actionId === service.id}>
-                                  Remove Image
+                                <a href={service.imageUrl} target="_blank" rel="noreferrer">Preview</a>
+                              ) : (
+                                <span className="small">No image</span>
+                              )}
+                            </td>
+                            <td><span className={`badge ${service.isActive ? "ok" : "bad"}`}>{service.isActive ? "ACTIVE" : "HIDDEN"}</span></td>
+                            <td>{service.sortOrder}</td>
+                            <td>{service.updatedAt ? new Date(service.updatedAt).toLocaleString() : "-"}</td>
+                            <td>
+                              <div className="row-actions">
+                                <button
+                                  onClick={() => void updateService(service, { isActive: !service.isActive })}
+                                  disabled={actionId === service.id}
+                                >
+                                  {service.isActive ? "Hide" : "Show"}
                                 </button>
-                              ) : null}
-                              <button
-                                onClick={() => {
-                                  const next = window.prompt("Sort order (integer)", String(service.sortOrder));
-                                  if (next === null) return;
-                                  const parsed = Number(next);
-                                  if (!Number.isInteger(parsed) || parsed < 0) return;
-                                  void updateService(service, { sortOrder: parsed });
-                                }}
-                                disabled={actionId === service.id}
-                              >
-                                Set Order
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </section>
+                                <button
+                                  onClick={() => {
+                                    const next = window.prompt("Edit service title", service.title);
+                                    if (next === null) return;
+                                    const trimmed = next.trim();
+                                    if (!trimmed) return;
+                                    void updateService(service, { title: trimmed });
+                                  }}
+                                  disabled={actionId === service.id}
+                                >
+                                  Edit Title
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const next = window.prompt("Enter image URL", service.imageUrl ?? "");
+                                    if (next === null) return;
+                                    const trimmed = next.trim();
+                                    void updateService(service, { imageUrl: trimmed ? trimmed : null });
+                                  }}
+                                  disabled={actionId === service.id}
+                                >
+                                  {service.imageUrl ? "Update Image" : "Add Image"}
+                                </button>
+                                {service.imageUrl ? (
+                                  <button onClick={() => void updateService(service, { imageUrl: null })} disabled={actionId === service.id}>
+                                    Remove Image
+                                  </button>
+                                ) : null}
+                                <button
+                                  onClick={() => {
+                                    const next = window.prompt("Sort order (integer)", String(service.sortOrder));
+                                    if (next === null) return;
+                                    const parsed = Number(next);
+                                    if (!Number.isInteger(parsed) || parsed < 0) return;
+                                    void updateService(service, { sortOrder: parsed });
+                                  }}
+                                  disabled={actionId === service.id}
+                                >
+                                  Set Order
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </section>
+                </>
               ) : null}
 
               {tab === "users" ? (

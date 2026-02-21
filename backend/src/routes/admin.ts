@@ -542,9 +542,53 @@ const updateServiceSchema = z
     message: "Provide at least one field to update",
   });
 
+const bulkServiceImageSchema = z.object({
+  updates: z
+    .array(
+      z.object({
+        id: z.string().min(2),
+        imageUrl: z.string().url().nullable(),
+      })
+    )
+    .min(1),
+});
+
 router.get("/services", async (_req, res) => {
   const services = await listServices(true);
   return res.json({ services });
+});
+
+router.post("/services/bulk-images", async (req, res, next) => {
+  try {
+    const body = bulkServiceImageSchema.parse(req.body);
+    const services = await listServices(true);
+    const serviceMap = new Map(services.map((item) => [item.id, item]));
+
+    let updated = 0;
+    for (const item of body.updates) {
+      const current = serviceMap.get(item.id);
+      if (!current) continue;
+
+      await logActivity({
+        userId: req.auth!.userId,
+        type: ADMIN_SERVICE_ACTIVITY_TYPE,
+        entityType: "SERVICE",
+        entityId: item.id,
+        metadata: {
+          title: current.title,
+          imageUrl: item.imageUrl,
+          isActive: current.isActive,
+          sortOrder: current.sortOrder,
+        },
+      });
+      updated += 1;
+    }
+
+    const refreshed = await listServices(true);
+    return res.json({ updated, services: refreshed });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 router.patch("/services/:id", async (req, res, next) => {
