@@ -86,6 +86,22 @@ interface Overview {
   };
 }
 
+interface LegacyPlanDetailResponse {
+  legacyPlan: {
+    id: string;
+    userId: string;
+    user: { id: string; fullName: string; email: string; createdAt: string };
+    wishes: string | null;
+    instructions: string | null;
+    assets: unknown;
+    beneficiaries: unknown;
+    parsedWishes: unknown;
+    parsedInstructions: unknown;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
 interface CategoriesResponse {
   categories: Category[];
 }
@@ -193,6 +209,8 @@ export default function App() {
   const [createPrice, setCreatePrice] = useState("");
   const [createImageUrl, setCreateImageUrl] = useState("");
   const [expandedVendorId, setExpandedVendorId] = useState<string | null>(null);
+  const [expandedLegacyId, setExpandedLegacyId] = useState<string | null>(null);
+  const [legacyDetailById, setLegacyDetailById] = useState<Record<string, LegacyPlanDetailResponse["legacyPlan"]>>({});
 
   const coverage = useMemo(() => {
     if (!stats.users) {
@@ -429,6 +447,56 @@ export default function App() {
     }
   }
 
+  async function toggleLegacyDetail(planId: string) {
+    if (expandedLegacyId === planId) {
+      setExpandedLegacyId(null);
+      return;
+    }
+
+    if (!legacyDetailById[planId]) {
+      setActionId(planId);
+      try {
+        setError(null);
+        const response = await apiRequest<LegacyPlanDetailResponse>(`/api/admin/legacy-plans/${planId}`);
+        setLegacyDetailById((current) => ({ ...current, [planId]: response.legacyPlan }));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load full legacy record");
+        return;
+      } finally {
+        setActionId(null);
+      }
+    }
+
+    setExpandedLegacyId(planId);
+  }
+
+  function downloadLegacy(planId: string) {
+    const detail = legacyDetailById[planId];
+    if (!detail) return;
+
+    const payload = {
+      person: detail.user,
+      createdAt: detail.createdAt,
+      updatedAt: detail.updatedAt,
+      wishesRaw: detail.wishes,
+      instructionsRaw: detail.instructions,
+      wishesParsed: detail.parsedWishes,
+      instructionsParsed: detail.parsedInstructions,
+      assets: detail.assets,
+      beneficiaries: detail.beneficiaries,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${detail.user.fullName.replace(/\s+/g, "_").toLowerCase()}_legacy_will.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   if (!authenticated) {
     return (
       <main className="container">
@@ -519,23 +587,54 @@ export default function App() {
                 <section className="table-wrap">
                   <table>
                     <thead>
-                      <tr><th>User</th><th>Email</th><th>Wishes</th><th>Will/Instructions</th><th>Assets</th><th>Beneficiaries</th><th>Last Updated</th></tr>
+                      <tr><th>User</th><th>Email</th><th>Wishes</th><th>Will/Instructions</th><th>Assets</th><th>Beneficiaries</th><th>Last Updated</th><th>Action</th></tr>
                     </thead>
                     <tbody>
                       {legacyPlans.map((plan) => (
-                        <tr key={plan.id}>
-                          <td>{plan.user.fullName}</td>
-                          <td>{plan.user.email}</td>
-                          <td><span className={`badge ${plan.hasWishes ? "ok" : "bad"}`}>{plan.hasWishes ? "YES" : "NO"}</span></td>
-                          <td><span className={`badge ${plan.hasInstructions ? "ok" : "bad"}`}>{plan.hasInstructions ? "YES" : "NO"}</span></td>
-                          <td><span className={`badge ${plan.hasAssets ? "ok" : "bad"}`}>{plan.hasAssets ? "YES" : "NO"}</span></td>
-                          <td><span className={`badge ${plan.hasBeneficiaries ? "ok" : "bad"}`}>{plan.hasBeneficiaries ? "YES" : "NO"}</span></td>
-                          <td>{new Date(plan.updatedAt).toLocaleString()}</td>
-                        </tr>
+                        <Fragment key={plan.id}>
+                          <tr>
+                            <td>{plan.user.fullName}</td>
+                            <td>{plan.user.email}</td>
+                            <td><span className={`badge ${plan.hasWishes ? "ok" : "bad"}`}>{plan.hasWishes ? "YES" : "NO"}</span></td>
+                            <td><span className={`badge ${plan.hasInstructions ? "ok" : "bad"}`}>{plan.hasInstructions ? "YES" : "NO"}</span></td>
+                            <td><span className={`badge ${plan.hasAssets ? "ok" : "bad"}`}>{plan.hasAssets ? "YES" : "NO"}</span></td>
+                            <td><span className={`badge ${plan.hasBeneficiaries ? "ok" : "bad"}`}>{plan.hasBeneficiaries ? "YES" : "NO"}</span></td>
+                            <td>{new Date(plan.updatedAt).toLocaleString()}</td>
+                            <td>
+                              <div className="row-actions">
+                                <button onClick={() => void toggleLegacyDetail(plan.id)} disabled={actionId === plan.id}>
+                                  {expandedLegacyId === plan.id ? "Hide" : "View Full"}
+                                </button>
+                                <button onClick={() => downloadLegacy(plan.id)} disabled={!legacyDetailById[plan.id]}>
+                                  Download
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {expandedLegacyId === plan.id && legacyDetailById[plan.id] ? (
+                            <tr>
+                              <td colSpan={8}>
+                                <div className="card" style={{ margin: 0 }}>
+                                  <h3>Full Legacy / Will Record</h3>
+                                  <p className="small"><strong>User:</strong> {legacyDetailById[plan.id].user.fullName} ({legacyDetailById[plan.id].user.email})</p>
+                                  <p className="small"><strong>Updated:</strong> {new Date(legacyDetailById[plan.id].updatedAt).toLocaleString()}</p>
+                                  <p className="small"><strong>Parsed Wishes:</strong></p>
+                                  <pre className="small" style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(legacyDetailById[plan.id].parsedWishes, null, 2) || "-"}</pre>
+                                  <p className="small"><strong>Parsed Instructions (Will):</strong></p>
+                                  <pre className="small" style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(legacyDetailById[plan.id].parsedInstructions, null, 2) || "-"}</pre>
+                                  <p className="small"><strong>Assets:</strong></p>
+                                  <pre className="small" style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(legacyDetailById[plan.id].assets, null, 2) || "-"}</pre>
+                                  <p className="small"><strong>Beneficiaries:</strong></p>
+                                  <pre className="small" style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(legacyDetailById[plan.id].beneficiaries, null, 2) || "-"}</pre>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
                       ))}
                       {legacyPlans.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="small">No legacy/will records yet.</td>
+                          <td colSpan={8} className="small">No legacy/will records yet.</td>
                         </tr>
                       ) : null}
                     </tbody>

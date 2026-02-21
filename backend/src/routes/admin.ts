@@ -81,6 +81,17 @@ function parseVendorApplicationMetadata(value: unknown): VendorApplicationMetada
   };
 }
 
+function parseMaybeJsonString(value: string | null | undefined) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
 router.get("/overview", async (_req, res) => {
   const [
     users,
@@ -237,6 +248,40 @@ router.get("/vendor-applications", async (_req, res) => {
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   return res.json({ applications });
+});
+
+router.get("/legacy-plans/:id", async (req, res) => {
+  const legacyPlan = await prisma.legacyPlan.findUnique({
+    where: { id: req.params.id },
+    include: {
+      user: {
+        select: { id: true, fullName: true, email: true, createdAt: true },
+      },
+    },
+  });
+
+  if (!legacyPlan) {
+    return res.status(404).json({ error: "Legacy plan not found" });
+  }
+
+  const parsedWishes = parseMaybeJsonString(legacyPlan.wishes);
+  const parsedInstructions = parseMaybeJsonString(legacyPlan.instructions);
+
+  return res.json({
+    legacyPlan: {
+      id: legacyPlan.id,
+      userId: legacyPlan.userId,
+      user: legacyPlan.user,
+      wishes: legacyPlan.wishes,
+      instructions: legacyPlan.instructions,
+      assets: legacyPlan.assets,
+      beneficiaries: legacyPlan.beneficiaries,
+      parsedWishes,
+      parsedInstructions,
+      createdAt: legacyPlan.createdAt,
+      updatedAt: legacyPlan.updatedAt,
+    },
+  });
 });
 
 const vendorApplicationStatusSchema = z.object({

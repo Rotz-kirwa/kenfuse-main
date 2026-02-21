@@ -47,6 +47,7 @@ export const API_CATALOG: ApiEndpointInfo[] = [
   { method: "PATCH", path: "/api/admin/services/:id", access: "admin", description: "Admin update service title/image/visibility/order" },
   { method: "GET", path: "/api/admin/vendor-applications", access: "admin", description: "Admin list vendor applications" },
   { method: "PATCH", path: "/api/admin/vendor-applications/:id/status", access: "admin", description: "Admin review vendor application status" },
+  { method: "GET", path: "/api/admin/legacy-plans/:id", access: "admin", description: "Admin view full legacy/will record" },
 
   { method: "GET", path: "/api/meta/endpoints", access: "public", description: "API endpoint catalog with required roles" },
 ];
