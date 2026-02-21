@@ -30,6 +30,7 @@ export const API_CATALOG: ApiEndpointInfo[] = [
   { method: "GET", path: "/api/marketplace/categories", access: "public", description: "Marketplace categories" },
   { method: "GET", path: "/api/marketplace/listings", access: "public", description: "Marketplace listings" },
   { method: "POST", path: "/api/marketplace/listings", access: "admin", description: "Create listing (admin only)" },
+  { method: "POST", path: "/api/marketplace/vendor-applications", access: "public", description: "Submit marketplace vendor application" },
 
   { method: "GET", path: "/api/activities/me", access: "auth", description: "Own activity feed" },
   { method: "GET", path: "/api/activities/feed", access: "public", description: "Global activity feed" },
@@ -44,6 +45,8 @@ export const API_CATALOG: ApiEndpointInfo[] = [
   { method: "PATCH", path: "/api/admin/memorials/:id/visibility", access: "admin", description: "Admin update memorial visibility" },
   { method: "GET", path: "/api/admin/services", access: "admin", description: "Admin list services directory items" },
   { method: "PATCH", path: "/api/admin/services/:id", access: "admin", description: "Admin update service title/image/visibility/order" },
+  { method: "GET", path: "/api/admin/vendor-applications", access: "admin", description: "Admin list vendor applications" },
+  { method: "PATCH", path: "/api/admin/vendor-applications/:id/status", access: "admin", description: "Admin review vendor application status" },
 
   { method: "GET", path: "/api/meta/endpoints", access: "public", description: "API endpoint catalog with required roles" },
 ];

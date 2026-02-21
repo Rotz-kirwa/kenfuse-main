@@ -1,5 +1,6 @@
 import { createSafeRouter } from "../lib/safe-router.js";
 import { z } from "zod";
+import { randomUUID } from "crypto";
 import { prisma } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/require-admin.js";
@@ -7,6 +8,8 @@ import { logActivity } from "../lib/activity.js";
 import { getListingContactMap, LISTING_CONTACT_ACTIVITY_TYPE } from "../lib/listing-contacts.js";
 
 const router = createSafeRouter();
+const VENDOR_APPLICATION_SUBMITTED_TYPE = "VENDOR_APPLICATION_SUBMITTED";
+const VENDOR_APPLICATION_ENTITY_TYPE = "VENDOR_APPLICATION";
 
 router.get("/categories", async (_req, res) => {
   const categories = await prisma.marketplaceCategory.findMany({
@@ -92,6 +95,50 @@ router.post("/listings", requireAuth, requireAdmin, async (req, res, next) => {
     }
 
     return res.status(201).json({ listing });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+const vendorApplicationSchema = z.object({
+  businessName: z.string().min(2).max(160),
+  businessType: z.enum(["INDIVIDUAL", "REGISTERED_BUSINESS", "COMPANY"]),
+  ownerFullName: z.string().min(2).max(160),
+  email: z.string().email(),
+  phoneNumber: z.string().min(7).max(40),
+  whatsappNumber: z.string().min(7).max(40).optional(),
+  idOrRegistrationNumber: z.string().min(3).max(120),
+  businessCategory: z.string().min(2).max(120),
+  businessDescription: z.string().min(10).max(4000),
+  county: z.string().min(2).max(120),
+  physicalAddress: z.string().min(2).max(240).optional(),
+  offersDelivery: z.boolean(),
+  yearsInBusiness: z.number().int().min(0).max(100),
+});
+
+router.post("/vendor-applications", async (req, res, next) => {
+  try {
+    const body = vendorApplicationSchema.parse(req.body);
+    const applicationId = randomUUID();
+
+    await prisma.activity.create({
+      data: {
+        userId: req.auth?.userId ?? null,
+        type: VENDOR_APPLICATION_SUBMITTED_TYPE,
+        entityType: VENDOR_APPLICATION_ENTITY_TYPE,
+        entityId: applicationId,
+        metadata: {
+          ...body,
+          status: "PENDING",
+        },
+      },
+    });
+
+    return res.status(201).json({
+      applicationId,
+      status: "PENDING",
+      message: "Vendor application submitted successfully.",
+    });
   } catch (error) {
     return next(error);
   }

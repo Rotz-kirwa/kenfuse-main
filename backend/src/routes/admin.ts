@@ -9,8 +9,77 @@ import { ADMIN_SERVICE_ACTIVITY_TYPE, getServiceDefinitionById, listServices } f
 import { getListingContactMap, LISTING_CONTACT_ACTIVITY_TYPE } from "../lib/listing-contacts.js";
 
 const router = createSafeRouter();
+const VENDOR_APPLICATION_SUBMITTED_TYPE = "VENDOR_APPLICATION_SUBMITTED";
+const VENDOR_APPLICATION_STATUS_UPDATED_TYPE = "VENDOR_APPLICATION_STATUS_UPDATED";
+const VENDOR_APPLICATION_ENTITY_TYPE = "VENDOR_APPLICATION";
 
 router.use(requireAuth, requireAdmin);
+
+type VendorApplicationStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+interface VendorApplicationMetadata {
+  businessName: string;
+  businessType: "INDIVIDUAL" | "REGISTERED_BUSINESS" | "COMPANY";
+  ownerFullName: string;
+  email: string;
+  phoneNumber: string;
+  whatsappNumber?: string;
+  idOrRegistrationNumber: string;
+  businessCategory: string;
+  businessDescription: string;
+  county: string;
+  physicalAddress?: string;
+  offersDelivery: boolean;
+  yearsInBusiness: number;
+  status?: VendorApplicationStatus;
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function parseVendorApplicationMetadata(value: unknown): VendorApplicationMetadata | null {
+  const source = asObject(value);
+  if (!source) return null;
+  if (
+    typeof source.businessName !== "string" ||
+    typeof source.businessType !== "string" ||
+    typeof source.ownerFullName !== "string" ||
+    typeof source.email !== "string" ||
+    typeof source.phoneNumber !== "string" ||
+    typeof source.idOrRegistrationNumber !== "string" ||
+    typeof source.businessCategory !== "string" ||
+    typeof source.businessDescription !== "string" ||
+    typeof source.county !== "string" ||
+    typeof source.offersDelivery !== "boolean" ||
+    typeof source.yearsInBusiness !== "number"
+  ) {
+    return null;
+  }
+
+  const status =
+    source.status === "PENDING" || source.status === "APPROVED" || source.status === "REJECTED"
+      ? source.status
+      : undefined;
+
+  return {
+    businessName: source.businessName,
+    businessType: source.businessType as VendorApplicationMetadata["businessType"],
+    ownerFullName: source.ownerFullName,
+    email: source.email,
+    phoneNumber: source.phoneNumber,
+    whatsappNumber: typeof source.whatsappNumber === "string" ? source.whatsappNumber : undefined,
+    idOrRegistrationNumber: source.idOrRegistrationNumber,
+    businessCategory: source.businessCategory,
+    businessDescription: source.businessDescription,
+    county: source.county,
+    physicalAddress: typeof source.physicalAddress === "string" ? source.physicalAddress : undefined,
+    offersDelivery: source.offersDelivery,
+    yearsInBusiness: source.yearsInBusiness,
+    status,
+  };
+}
 
 router.get("/overview", async (_req, res) => {
   const [
@@ -80,6 +149,118 @@ router.get("/overview", async (_req, res) => {
       user: await prisma.user.count({ where: { role: "USER" } }),
     },
   });
+});
+
+router.get("/vendor-applications", async (_req, res) => {
+  const [submittedRows, statusRows] = await Promise.all([
+    prisma.activity.findMany({
+      where: {
+        type: VENDOR_APPLICATION_SUBMITTED_TYPE,
+        entityType: VENDOR_APPLICATION_ENTITY_TYPE,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true },
+        },
+      },
+    }),
+    prisma.activity.findMany({
+      where: {
+        type: VENDOR_APPLICATION_STATUS_UPDATED_TYPE,
+        entityType: VENDOR_APPLICATION_ENTITY_TYPE,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true },
+        },
+      },
+    }),
+  ]);
+
+  const latestStatusById = new Map<string, { status: VendorApplicationStatus; note?: string; reviewedAt: string; reviewedBy?: { id: string; fullName: string; email: string } }>();
+
+  for (const row of statusRows) {
+    if (latestStatusById.has(row.entityId)) continue;
+    const source = asObject(row.metadata);
+    if (!source) continue;
+    const status = source?.status;
+    if (status !== "PENDING" && status !== "APPROVED" && status !== "REJECTED") continue;
+
+    latestStatusById.set(row.entityId, {
+      status,
+      note: typeof source.note === "string" ? source.note : undefined,
+      reviewedAt: row.createdAt.toISOString(),
+      reviewedBy: row.user ?? undefined,
+    });
+  }
+
+  const applications = submittedRows
+    .map((row) => {
+      const parsed = parseVendorApplicationMetadata(row.metadata);
+      if (!parsed) return null;
+
+      const review = latestStatusById.get(row.entityId);
+      return {
+        id: row.entityId,
+        submittedAt: row.createdAt.toISOString(),
+        submittedBy: row.user ?? null,
+        status: review?.status ?? "PENDING",
+        reviewedAt: review?.reviewedAt ?? null,
+        reviewedBy: review?.reviewedBy ?? null,
+        reviewNote: review?.note ?? null,
+        ...parsed,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  return res.json({ applications });
+});
+
+const vendorApplicationStatusSchema = z.object({
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]),
+  note: z.string().max(500).optional(),
+});
+
+router.patch("/vendor-applications/:id/status", async (req, res, next) => {
+  try {
+    const body = vendorApplicationStatusSchema.parse(req.body);
+    const applicationId = req.params.id;
+
+    const existing = await prisma.activity.findFirst({
+      where: {
+        type: VENDOR_APPLICATION_SUBMITTED_TYPE,
+        entityType: VENDOR_APPLICATION_ENTITY_TYPE,
+        entityId: applicationId,
+      },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: "Vendor application not found" });
+    }
+
+    await prisma.activity.create({
+      data: {
+        userId: req.auth!.userId,
+        type: VENDOR_APPLICATION_STATUS_UPDATED_TYPE,
+        entityType: VENDOR_APPLICATION_ENTITY_TYPE,
+        entityId: applicationId,
+        metadata: {
+          status: body.status,
+          note: body.note?.trim() || null,
+        },
+      },
+    });
+
+    return res.json({
+      applicationId,
+      status: body.status,
+    });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 const fundraiserStatusSchema = z.object({

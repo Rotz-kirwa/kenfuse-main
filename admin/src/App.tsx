@@ -92,6 +92,31 @@ interface ServicesResponse {
   services: AdminService[];
 }
 
+interface VendorApplication {
+  id: string;
+  businessName: string;
+  businessType: "INDIVIDUAL" | "REGISTERED_BUSINESS" | "COMPANY";
+  ownerFullName: string;
+  email: string;
+  phoneNumber: string;
+  whatsappNumber?: string;
+  idOrRegistrationNumber: string;
+  businessCategory: string;
+  businessDescription: string;
+  county: string;
+  physicalAddress?: string;
+  offersDelivery: boolean;
+  yearsInBusiness: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+}
+
+interface VendorApplicationsResponse {
+  applications: VendorApplication[];
+}
+
 interface LoginResponse {
   user: {
     role: string;
@@ -122,7 +147,7 @@ function getVendorContact(vendorName: string) {
   return vendorContacts[vendorName.trim().toLowerCase()] ?? "+254 700 000 999";
 }
 
-type Tab = "fundraisers" | "memorials" | "marketplace" | "services" | "activity" | "users";
+type Tab = "fundraisers" | "memorials" | "marketplace" | "vendors" | "services" | "activity" | "users";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("fundraisers");
@@ -145,6 +170,7 @@ export default function App() {
   const [activities, setActivities] = useState<EventItem[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [services, setServices] = useState<AdminService[]>([]);
+  const [vendorApplications, setVendorApplications] = useState<VendorApplication[]>([]);
   const [rolesSummary, setRolesSummary] = useState({ admin: 0, user: 0 });
   const [creatingListing, setCreatingListing] = useState(false);
   const [createCategoryId, setCreateCategoryId] = useState("");
@@ -165,10 +191,11 @@ export default function App() {
   async function loadOverview() {
     try {
       setError(null);
-      const [data, categoriesData, servicesData] = await Promise.all([
+      const [data, categoriesData, servicesData, vendorAppsData] = await Promise.all([
         apiRequest<Overview>("/api/admin/overview"),
         apiRequest<CategoriesResponse>("/api/marketplace/categories"),
         apiRequest<ServicesResponse>("/api/admin/services"),
+        apiRequest<VendorApplicationsResponse>("/api/admin/vendor-applications"),
       ]);
       setStats(data.stats);
       setFundraisers(data.fundraiserList);
@@ -179,6 +206,7 @@ export default function App() {
       setRolesSummary(data.rolesSummary);
       setCategories(categoriesData.categories);
       setServices(servicesData.services);
+      setVendorApplications(vendorAppsData.applications);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
@@ -230,6 +258,7 @@ export default function App() {
     setMemorials([]);
     setListings([]);
     setServices([]);
+    setVendorApplications([]);
     setActivities([]);
     setUsers([]);
     setRolesSummary({ admin: 0, user: 0 });
@@ -315,6 +344,23 @@ export default function App() {
       await apiRequest(`/api/admin/services/${service.id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
+      });
+      setRefreshing(true);
+      await loadOverview();
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function updateVendorApplicationStatus(
+    application: VendorApplication,
+    status: "PENDING" | "APPROVED" | "REJECTED"
+  ) {
+    setActionId(application.id);
+    try {
+      await apiRequest(`/api/admin/vendor-applications/${application.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
       });
       setRefreshing(true);
       await loadOverview();
@@ -411,6 +457,7 @@ export default function App() {
           <button className={`tab-btn ${tab === "fundraisers" ? "active" : ""}`} onClick={() => setTab("fundraisers")}>Fundraisers</button>
           <button className={`tab-btn ${tab === "memorials" ? "active" : ""}`} onClick={() => setTab("memorials")}>Memorials</button>
           <button className={`tab-btn ${tab === "marketplace" ? "active" : ""}`} onClick={() => setTab("marketplace")}>Marketplace</button>
+          <button className={`tab-btn ${tab === "vendors" ? "active" : ""}`} onClick={() => setTab("vendors")}>Vendor Applications</button>
           <button className={`tab-btn ${tab === "services" ? "active" : ""}`} onClick={() => setTab("services")}>Services</button>
           <button className={`tab-btn ${tab === "activity" ? "active" : ""}`} onClick={() => setTab("activity")}>Activity</button>
           <button className={`tab-btn ${tab === "users" ? "active" : ""}`} onClick={() => setTab("users")}>Users</button>
@@ -611,6 +658,62 @@ export default function App() {
                     </table>
                   </section>
                 </>
+              ) : null}
+
+              {tab === "vendors" ? (
+                <section className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Business</th><th>Owner</th><th>Contact</th><th>Category</th><th>County</th><th>Delivery</th><th>Years</th><th>Status</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                      {vendorApplications.map((application) => (
+                        <tr key={application.id}>
+                          <td>
+                            <strong>{application.businessName}</strong>
+                            <div className="small">{application.businessType}</div>
+                          </td>
+                          <td>
+                            <div>{application.ownerFullName}</div>
+                            <div className="small">{application.idOrRegistrationNumber}</div>
+                          </td>
+                          <td>
+                            <a href={`mailto:${application.email}`}>{application.email}</a>
+                            <div className="small">
+                              <a href={`tel:${application.phoneNumber.replace(/[^\d+]/g, "")}`}>{application.phoneNumber}</a>
+                            </div>
+                          </td>
+                          <td>{application.businessCategory}</td>
+                          <td>{application.county}</td>
+                          <td>{application.offersDelivery ? "Yes" : "No"}</td>
+                          <td>{application.yearsInBusiness}</td>
+                          <td><span className={`badge ${application.status === "APPROVED" ? "ok" : application.status === "REJECTED" ? "bad" : ""}`}>{application.status}</span></td>
+                          <td>
+                            <div className="row-actions">
+                              <button onClick={() => void updateVendorApplicationStatus(application, "APPROVED")} disabled={actionId === application.id}>Approve</button>
+                              <button onClick={() => void updateVendorApplicationStatus(application, "REJECTED")} disabled={actionId === application.id}>Reject</button>
+                              <button onClick={() => void updateVendorApplicationStatus(application, "PENDING")} disabled={actionId === application.id}>Reset</button>
+                              <button
+                                onClick={() => {
+                                  window.alert(
+                                    `Description:\n${application.businessDescription}\n\nAddress: ${application.physicalAddress ?? "-"}\nWhatsApp: ${application.whatsappNumber ?? "-"}\nSubmitted: ${new Date(application.submittedAt).toLocaleString()}`
+                                  );
+                                }}
+                              >
+                                View
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {vendorApplications.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="small">No vendor applications yet.</td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </section>
               ) : null}
 
               {tab === "activity" ? (
